@@ -1,0 +1,6 @@
+authors = ["andreas <andreas.peter.ch@gmail.com>"]
+name = "MatrixProductStates"
+uuid = "5fe0d8d6-e987-11e8-0432-21eb125b105c"
+version = "0.1.0"
+
+[deps]
