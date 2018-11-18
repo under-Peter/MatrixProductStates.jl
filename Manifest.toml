@@ -41,7 +41,7 @@ uuid = "6462fe0b-24de-5631-8697-dd941f90decc"
 
 [[TNTensors]]
 deps = ["LinearAlgebra", "TensorOperations", "TupleTools"]
-git-tree-sha1 = "72cd11073768ad782592c9516665d6c432fa8f5d"
+git-tree-sha1 = "eaa9a94ec90acfc60aa94795830b00b28144133a"
 repo-rev = "master"
 repo-url = "/home/andreas/Dropbox/Strathclyde/SymmetricTensors/TNTensors.jl"
 uuid = "745a9c42-ba8f-11e8-245d-33de09cdb470"
