@@ -2,27 +2,24 @@ function initenvironments(mps::CanonicalMPS{L,T,TE,TB}, mpo::MPO{L,T}) where {L,
     centerlink(mps) == 1 || throw(ArgumentError("centerlink needs to be set to 1"))
     envs = TB[]
     foldr((x,y) -> push!(envs, contractsites(x,y))[end],
-                        [zip(mps[2:L], mpo[2:L], mps[2:L]')...],
-                        init = ())
+        collect(zip(mps[2:L], mpo[2:L], mps[2:L]')), init = ())
     return reverse(envs)
 end
 
-function updateenvironments!(environments::Vector{TB},
-     mps::CanonicalMPS{L,T,TE,TB}, mpo, site, up) where {L,T,TE,TB}
-    centerlink(mps) == site || centerlink(mps) + 1 == site || throw(
+function updateenvironments!(envs::Vector{TB},
+     mps::CanonicalMPS{L,T,TE,TB}, mpo, i, up) where {L,T,TE,TB}
+    centerlink(mps) == i || centerlink(mps) + 1 == i || throw(
         ArgumentError("illegal environment update"))
-    if site == 1 #down -> up
-        environments[1]   = contractsites((), (mps[1],mpo[1],mps[1]'))
-    elseif site == L #up -> down
-        environments[L-1] = contractsites((mps[L],mpo[L],mps[L]'),())
+    if i == 1 #down -> up
+        envs[1]   = contractsites((), (mps[1],mpo[1],mps[1]'))
+    elseif i == L #up -> down
+        envs[L-1] = contractsites((mps[L],mpo[L],mps[L]'),())
     elseif up
-        environments[site] =
-            contractsites(environments[site-1], (mps[site], mpo[site], mps[site]'))
+        envs[i] = contractsites(envs[i-1], (mps[i], mpo[i], mps[i]'))
     else
-        environments[site-1] =
-            contractsites((mps[site], mpo[site], mps[site]'), environments[site])
+        envs[i-1] = contractsites((mps[i], mpo[i], mps[i]'), envs[i])
     end
-    return environments
+    return envs
 end
 
 
@@ -32,18 +29,16 @@ function dmrg(ansatz::AbstractMPS{L,T}, mpo::AbstractMPO{L,T};
                 mincounter::Int = 2,
                 maxit::Int = 1_000_000) where {L,T}
     mps = normalize!(canonicalize(ansatz,1))
-    environments = initenvironments(mps, mpo)
+    envs = initenvironments(mps, mpo)
     energies = Float64[]
     envs = initenvironments(mps, mpo)
     counter = 1
     converged = false
     while (!converged || counter < mincounter) && counter <= maxit
-        @show counter
         verbose && println("$counter ")
         counter += 1
         up = true
         E = dmrgsweep(mps, mpo, envs, verbose)
-
         push!(energies,E)
 
         if length(energies) > 1 && abs(energies[end] - energies[end-1]) < tol
@@ -52,30 +47,31 @@ function dmrg(ansatz::AbstractMPS{L,T}, mpo::AbstractMPO{L,T};
     end
     verbose && println(
     """converged after $(counter-1) passes
-    with an energy change of $(energies[end] - energies[end-1])
-    between the last two steps""")
+    with a ΔE of $(energies[end] - energies[end-1]) in the last step""")
 
     return (mps, energies)
 end
 
 function dmrgsweep(mps::AbstractMPS{L}, mpo, envs, verbose) where L
     E = 0
-    up = true
-    for i in vcat(collect(1:L),collect(L-1:-1:2))
-        verbose && println(repeat(">", i-1), "o", repeat("<", L-i))
-        E, = minimisesite!(mps, mpo, i, envs)
-        i == 1 && (up = true)
-        i == L && (up = false)
-        !up && canonicalize!(mps,i-1)
-        updateenvironments!(envs, mps, mpo, i, up)
+    for i in 1:L
+        verbose && println(">"^(i-1),"o","<"^(L-i))
+        E = minimisesite!(mps, mpo, i, envs)
+        updateenvironments!(envs, mps, mpo, i, true)
+    end
+    for i in L-1:-1:2
+        verbose && println(">"^(i-1),"o","<"^(L-i))
+        E = minimisesite!(mps, mpo, i, envs)
+        canonicalize!(mps,i-1)
+        updateenvironments!(envs, mps, mpo, i, false)
     end
     return E
 end
 
 
-function minimisesite!(mps::CanonicalMPS{L}, mpo::AbstractMPO,
-        i, environments) where {L}
+function minimisesite!(mps::CanonicalMPS{L}, mpo::AbstractMPO, i, envs) where {L}
     canonicalize!(mps, min(i, L-1))
+    #absorb zero site
     if centerlink(mps) >= i
         mps[i] = contractsite(mps[i], zerosite(mps))
     else
@@ -83,7 +79,7 @@ function minimisesite!(mps::CanonicalMPS{L}, mpo::AbstractMPO,
     end
 
     #smallest realpart eigenvector
-    E, mps[i] = minevec(mps, mpo, i, environments)
+    mps[i], E, info = minevec(mps, mpo, i, envs)
 
     #canonical form again
     if i == L
@@ -93,14 +89,14 @@ function minimisesite!(mps::CanonicalMPS{L}, mpo::AbstractMPO,
         mps[i], S, V = onesitesvd2right(mps[i])
         mps.zerosite = contractsite(S, V)
     end
-    return E, mps
+    return E
 end
 
 function minevec(mps::CanonicalMPS{L}, mpo::AbstractMPO{L}, i, envs) where L
     heffmap = heffmapconst(mpo, envs, Val{i})
     v0 = mps[i]
     res = eigsolve(heffmap, v0, 1, :SR, ishermitian=true)
-    return (res[1][1], res[2][1]) #eval, evec
+    return (res[2][1], res[1][1], res[3]) #evec, eval, info
 end
 
 function heffmapconst(mpo, envs, ::Type{Val{1}})
