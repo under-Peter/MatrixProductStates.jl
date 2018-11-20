@@ -1,4 +1,4 @@
-function hubbardMPO(t, U, pcharges, N; T = Complex128)
+function hubbardMPO(t, U, pcharges, N; T = ComplexF64)
     shift = -minimum(pcharges)
     shift < 0 && (shift = 0)
     pdims = [1 for i in pcharges]

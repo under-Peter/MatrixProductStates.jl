@@ -82,6 +82,25 @@ function randu1mps(N,T, charges::NTuple{2,UnitRange}, dims::NTuple{2,Vector{Int}
     return MPS(lb,mid,rb)
 end
 
+randz2mps(N, T,  charges::UnitRange, dims::Vector{Int}) =
+    randz2mps(N, T, (charges,charges),(dims,dims))
+
+function randz2mps(N,T, charges::NTuple{2,UnitRange}, dims::NTuple{2,Vector{Int}})
+    pchs, vchs = charges
+    pds, vds = dims
+    lb = rand(ZNTensor{T,2,2}, (pchs, vchs), (pds, vds), (-1,-1))
+    mid = [rand(ZNTensor{T,3,2}, (vchs, pchs, vchs), (vds, pds, vds), (1,-1,-1)) for i in 1:(N-2)]
+    rb = rand(ZNTensor{T,2,2}, (vchs, pchs), (vds, pds), (1,-1))
+    return MPS(lb,mid,rb)
+end
+
+function randdmps(N,T, (pd, vd))
+    lb = DTensor{T,2}(rand(T,pd,vd))
+    mid = [DTensor{T,3}(rand(T,vd,pd,vd)) for i in 1:(N-2)]
+    rb = DTensor{T,2}(rand(T,vd,pd))
+    return MPS(lb,mid,rb)
+end
+
 #= mpscontract to scalar =#
 function contractsites(A::AbstractTensor{T,3}, B::AbstractTensor{T,3}) where T
     @tensor res[] := A[1,2,3] * B[1,2,3]
