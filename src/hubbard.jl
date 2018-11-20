@@ -63,7 +63,7 @@ function hubbardMPO(t, U, pcharges, N; T = Complex128)
     return MPO{N}(leftbound, bulk,  rightbound)
 end
 
-function creationOp(pchs::UnitRange, T = Complex128)
+function creationOp(pchs::UnitRange, T = ComplexF64)
     ds = fill(1, length(pchs))
     ts =     Dict{NTuple{2,Int}, Array{T, 2}}(
         (ch-1,ch) => reshape([sqrt(ch)],1,1)
@@ -72,7 +72,7 @@ function creationOp(pchs::UnitRange, T = Complex128)
     return U1Tensor((pchs, pchs), (ds, ds), (1, -1), ts)
 end
 
-function annihilationOp(pchs::UnitRange)
+function annihilationOp(pchs::UnitRange, T = ComplexF64)
     ds = fill(1, length(pchs))
     ts =     Dict{NTuple{2,Int}, Array{T, 2}}(
         (ch,ch-1) => reshape([sqrt(ch)],1,1)

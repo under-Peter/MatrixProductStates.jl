@@ -7,7 +7,7 @@ function initenvironments(mps::CanonicalMPS{L,T,TE,TB}, mpo::MPO{L,T}) where {L,
 end
 
 function updateenvironments!(envs::Vector{TB},
-     mps::CanonicalMPS{L,T,TE,TB}, mpo, i, up) where {L,T,TE,TB}
+     mps::CanonicalMPS{L,T,TE,TB}, mpo, i, up = true) where {L,T,TE,TB}
     centerlink(mps) == i || centerlink(mps) + 1 == i || throw(
         ArgumentError("illegal environment update"))
     if i == 1 #down -> up
@@ -29,7 +29,6 @@ function dmrg(ansatz::AbstractMPS{L,T}, mpo::AbstractMPO{L,T};
                 mincounter::Int = 2,
                 maxit::Int = 1_000_000) where {L,T}
     mps = normalize!(canonicalize(ansatz,1))
-    envs = initenvironments(mps, mpo)
     energies = Float64[]
     envs = initenvironments(mps, mpo)
     counter = 1
