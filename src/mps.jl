@@ -9,9 +9,8 @@ mutable struct MPS{L, T, TE <: AbstractTensor{T,2}, TB <: AbstractTensor{T,3}} <
         TB <: AbstractTensor{T,3}} = new{length(b)+2,T,TE,TB}([a; b; c])
 end
 
-@inline Base.getindex(mps::AbstractMPS{L}, i) where L = mps.sites[i]
-@inline Base.setindex!(mps::AbstractMPS{L}, tensor, i) where {L} =
-    setindex!(mps.sites, tensor, i)
+Base.getindex(mps::AbstractMPS{L}, i) where L = mps.sites[i]
+Base.setindex!(mps::AbstractMPS{L}, tensor, i) where {L} = setindex!(mps.sites, tensor, i)
 Base.length(::AbstractMPS{L}) where L = L
 Base.adjoint(mps::MPS{L,T,TE,TB}) where {L,T,TE,TB} =
     MPS(mps[1]', adjoint.(convert(Array{TB},mps[2:L-1])), mps[L]')
@@ -70,105 +69,81 @@ end
 TNTensors.charge(mps::MPS{L}) where L = sum(charge.(mps[1:L]))
 TNTensors.charge(mps::CanonicalMPS{L}) where L = sum(charge.(mps[1:L])) + charge(zerosite(mps))
 
-randu1mps(N, T,  charges::UnitRange, dims::Vector{Int}) =
-    randu1mps(N, T, (charges,charges),(dims,dims))
-
-function randu1mps(N,T, charges::NTuple{2,UnitRange}, dims::NTuple{2,Vector{Int}})
-    pchs, vchs = charges
-    pds, vds = dims
-    lb = rand(U1Tensor{T,2}, (pchs, vchs), (pds, vds), (-1,-1))
-    mid = [rand(U1Tensor{T,3}, (vchs, pchs, vchs), (vds, pds, vds), (1,-1,-1)) for i in 1:(N-2)]
-    rb = rand(U1Tensor{T,2}, (vchs, pchs), (vds, pds), (1,-1))
-    return MPS(lb,mid,rb)
+randmps(N, T::Type, (d, χ)::Tuple{Int,Int}) =  randmps(N, DTensor{T}((χ,d,χ)))
+function randmps(N, T::Type, (sym, (pchs, vchs), (pds, vds)))
+    a = DASTensor{T,3}(sym, (vchs, pchs, vchs), (vds, pds, vds), InOut(-1,-1,1))
+    randmps(N, a)
 end
 
-randz2mps(N, T,  charges::UnitRange, dims::Vector{Int}) =
-    randz2mps(N, T, (charges,charges),(dims,dims))
-
-function randz2mps(N,T, charges::NTuple{2,UnitRange}, dims::NTuple{2,Vector{Int}})
-    pchs, vchs = charges
-    pds, vds = dims
-    lb = rand(ZNTensor{T,2,2}, (pchs, vchs), (pds, vds), (-1,-1))
-    mid = [rand(ZNTensor{T,3,2}, (vchs, pchs, vchs), (vds, pds, vds), (1,-1,-1)) for i in 1:(N-2)]
-    rb = rand(ZNTensor{T,2,2}, (vchs, pchs), (vds, pds), (1,-1))
-    return MPS(lb,mid,rb)
+function randmps(N, A::AbstractTensor{T,3}) where T
+    if A isa DASTensor
+        in_out(A) == InOut(-1,-1,1) || throw(
+            ArgumentError("DASTensor for MPS needs InOut(-1,-1,1)"))
+    end
+    bulk = [similar(A) for i in 2:N-1]
+    lb = checked_similar_from_indices(nothing, T, (2,3) , (), A)
+    rb = checked_similar_from_indices(nothing, T, (1,2) , (), A)
+    initwithrand!.(bulk)
+    initwithrand!(lb)
+    initwithrand!(rb)
+    return MPS(lb, bulk, rb)
 end
 
-function randdmps(N,T, (pd, vd))
-    lb = DTensor{T,2}(rand(T,pd,vd))
-    mid = [DTensor{T,3}(rand(T,vd,pd,vd)) for i in 1:(N-2)]
-    rb = DTensor{T,2}(rand(T,vd,pd))
-    return MPS(lb,mid,rb)
-end
 
 #= mpscontract to scalar =#
-function contractsites(A::AbstractTensor{T,3}, B::AbstractTensor{T,3}) where T
-    @tensor res[] := A[1,2,3] * B[1,2,3]
-    return scalar(res)
+function contractsites(A::T, B::T) where T <: AbstractTensor{<:Any,3}
+    @tensor res = A[1,2,3] * B[1,2,3]
 end
 
-function contractsites(A::AbstractTensor{T,2}, B::AbstractTensor{T,2}) where T
-    @tensor res[] := A[1,2] * B[1,2]
-    return scalar(res)
+function contractsites(A::T, B::T) where T <: AbstractTensor{<:Any,2}
+    @tensor res = A[1,2] * B[1,2]
 end
 
-function contractsites(TM::Tuple{AbstractTensor{T,2},AbstractTensor{T,2}},
+function contractsites((B,C)::Tuple{AbstractTensor{T,2},AbstractTensor{T,2}},
     A::AbstractTensor{T,2}) where T
-    B, C = TM
-    @tensor res[] := A[1,2] * B[-1,1] * C[-1, 2]
-    return scalar(res)
+    @tensor res = A[1,2] * B[-1,1] * C[-1, 2]
 end
 
 function contractsites(A::AbstractTensor{T,2},
-    TM::Tuple{AbstractTensor{T,2},AbstractTensor{T,2}}) where T
-    B, C = TM
-    @tensor res[] := A[1,2] * B[1,-1] * C[2, -1]
-    return scalar(res)
+    (B,C)::Tuple{AbstractTensor{T,2},AbstractTensor{T,2}}) where T
+    @tensor res = A[1,2] * B[1,-1] * C[2, -1]
 end
 
-function contractsites(TM::Tuple{AbstractTensor{T,2},AbstractTensor{T,3},AbstractTensor{T,2}},
+function contractsites((B,C,D)::Tuple{AbstractTensor{T,2},AbstractTensor{T,3},AbstractTensor{T,2}},
     A::AbstractTensor{T,3}) where T
-    B, C, D = TM
-    @tensor res[] := A[1,2,3] * B[-1,1] * C[-1,2,-2] * D[-2,3]
-    return scalar(res)
+    @tensor res = A[1,2,3] * B[-1,1] * C[-1,2,-2] * D[-2,3]
 end
 
 function contractsites(A::AbstractTensor{T,3},
-    TM::Tuple{AbstractTensor{T,2},AbstractTensor{T,3},AbstractTensor{T,2}}) where T
-    B, C, D = TM
-    @tensor res[] := A[1,2,3] * B[1,-1] * C[-1,2,-2] * D[3,-2]
-    return scalar(res)
+    (B,C,D)::Tuple{AbstractTensor{T,2},AbstractTensor{T,3},AbstractTensor{T,2}}) where T
+    @tensor res = A[1,2,3] * B[1,-1] * C[-1,2,-2] * D[3,-2]
 end
 
 #= mpscontract to grow edges (rank == 2 || rank == 3) =#
 # leftedge rank 3
 function contractsites(A::AbstractTensor{T,3},
-     TM::Tuple{AbstractTensor{T,3}, AbstractTensor{T,4}, AbstractTensor{T,3}}) where T
-    C, D, E = TM
+     (C,D,E)::Tuple{AbstractTensor{T,3}, AbstractTensor{T,4}, AbstractTensor{T,3}}) where T
     @tensor res[1,2,3] := A[-1,-2,-3] * C[-1,-4,1] * D[-4,-2,2,-5] * E[-3,-5,3]
     return res
 end
 
 # leftedge rank 2
 function contractsites(A::AbstractTensor{T,2},
-     TM::Tuple{AbstractTensor{T,3}, AbstractTensor{T,3}}) where T
-    C, D = TM
+     (C,D)::Tuple{AbstractTensor{T,3}, AbstractTensor{T,3}}) where T
     @tensor res[1,2] := A[-1,-2] * C[-1,-3,1] * D[-2,-3,2]
     return res
 end
 
 #rightedge rank 3
-function contractsites(TM::Tuple{AbstractTensor{T,3}, AbstractTensor{T,4}, AbstractTensor{T,3}},
+function contractsites((C,D,E)::Tuple{AbstractTensor{T,3}, AbstractTensor{T,4}, AbstractTensor{T,3}},
      A::AbstractTensor{T,3}) where T
-    C, D, E = TM
     @tensor res[1,2,3] := A[-1,-2,-3] * C[1,-4, -1] * D[-4,2,-2,-5] * E[3,-5,-3]
     return res
 end
 
 #rightedge rank 2
-function contractsites(TM::Tuple{AbstractTensor{T,3}, AbstractTensor{T,3}},
+function contractsites((C,D)::Tuple{AbstractTensor{T,3}, AbstractTensor{T,3}},
      A::AbstractTensor{T,2}) where T
-    C, D = TM
     @tensor res[1,2] := A[-1,-2] * C[1,-3,-1] * D[2,-3,-2]
     return res
 end
@@ -176,28 +151,21 @@ end
 #= mpscontract to initialize edges (rank == 2 || rank == 3) =#
 
 #left edge, rank 2
-function contractsites(::Tuple{},TM::Tuple{AbstractTensor{T,2},AbstractTensor{T,2}}) where T
-    A, B = TM
+function contractsites(::Tuple{},(A,B)::Tuple{AbstractTensor{T,2},AbstractTensor{T,2}}) where T
     @tensor res[1,2] := A[-1,1] * B[-1,2]
     return res
 end
 #left edge, rank 3
-function contractsites(::Tuple{},TM::Tuple{AbstractTensor{T,2},AbstractTensor{T,3},AbstractTensor{T,2}}) where T
-    A, B, C = TM
+function contractsites(::Tuple{},(A,B,C)::Tuple{AbstractTensor{T,2},AbstractTensor{T,3},AbstractTensor{T,2}}) where T
     @tensor res[1,2,3] := A[-1,1] * B[-1,2,-2] * C[-2,3]
-    return res
 end
 #right edge, rank 2
-function contractsites(TM::Tuple{AbstractTensor{T,2},AbstractTensor{T,2}},::Tuple{}) where T
-    A, B = TM
+function contractsites((A,B)::Tuple{AbstractTensor{T,2},AbstractTensor{T,2}},::Tuple{}) where T
     @tensor res[1,2] := A[1,-1] * B[2,-1]
-    return res
 end
 #right edge, rank 3
-function contractsites(TM::Tuple{AbstractTensor{T,2},AbstractTensor{T,3},AbstractTensor{T,2}},::Tuple{}) where T
-    A, B, C = TM
+function contractsites((A,B,C)::Tuple{AbstractTensor{T,2},AbstractTensor{T,3},AbstractTensor{T,2}},::Tuple{}) where T
     @tensor res[1,2,3] := A[1,-1] * B[-1,2,-2] * C[3,-2]
-    return res
 end
 
 #= mpscontract to contract neighboring sites =#
@@ -207,7 +175,6 @@ contractsite(A::AbstractTensor{T,3},Bs::AbstractTensor{T,2}...) where T =
 
 function contractsite(A::AbstractTensor{T,3},B::AbstractTensor{T,2}) where T
     @tensor res[1,2,3] := A[1,2,-1] * B[-1,3]
-    return res
 end
 
 #rank 3 with rank 2 on the left
@@ -216,7 +183,6 @@ contractsite(A::AbstractTensor{T,2}, B::AbstractTensor{T,2}, C::AbstractTensor{T
 
 function contractsite(A::AbstractTensor{T,2}, B::AbstractTensor{T,3}) where T
     @tensor res[1,2,3] := A[1,-1] * B[-1,2,3]
-    return res
 end
 
 #rank 2 with rank 2 on the left
@@ -225,7 +191,6 @@ contractsite(A::AbstractTensor{T,2}, Bs::AbstractTensor{T,2}...) where T =
 
 function contractsite(A::AbstractTensor{T,2},B::AbstractTensor{T,2}) where T
     @tensor res[1,2] := A[1,-1] * B[-1,2]
-    return res
 end
 
 
@@ -396,21 +361,9 @@ function movecenterlink!(mps::CanonicalMPS{L,T}, up::Bool) where {L,T}
     return mps
 end
 
-# function tensoridentity(A::U1Tensor{T}, i::Int) where T
-#     io     = -in_out(A,i)
-#     charge = charges(A,i)
-#     dims   = sizes(A,i)
-#     t = Dict((ch, ch) => eye(d) for (ch, d) in zip(charge, dims))
-#     return U1Tensor{T,2}((charge, charge), (dims, dims), (io, -io), t)
-# end
-#
-# function tensoridentity(A::DTensor{T,N}, i::Int) where {T,N}
-#     return DTensor{T,2}(eye(T, size(A, i)))
-# end
-
 function LinearAlgebra.normalize!(mps::CanonicalMPS)
     fac = sqrt(inner(mps))
-    apply!(zerosite(mps), x -> x/fac)
+    apply!(zerosite(mps), x -> x .= x ./ fac)
     return mps
 end
 

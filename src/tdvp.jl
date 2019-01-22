@@ -23,7 +23,7 @@ end
 function tdvpsweep!(mps::AbstractMPS{L}, mpo, envs, Δt, verbose) where L
     for i in 1:L-1
         verbose && println(">"^(i-1),"o","<"^(L-i))
-        onesitepropagate!(mps, mpo, i, envs, Δt/2) #propagate Ac(i) forward by Δt/2
+        onesitepropagate!(mps, mpo, i, envs, Δt/2)
         envsi = deepcopy(envs[i])
         updateenvironments!(envs, mps, mpo, i, true)
         zerositepropagate!(mps, envs[i], envsi, -Δt/2)
@@ -49,7 +49,7 @@ function tdvpsweep!(mps::AbstractMPS{L}, mpo, envs, Δt, verbose) where L
 end
 
 
-function onesitepropagate!(mps::CanonicalMPS{L}, mpo::AbstractMPO, i, envs, Δt) where {L}
+function onesitepropagate!(mps::CanonicalMPS{L}, mpo::AbstractMPO, i, envs, Δt) where L
     canonicalize!(mps, min(i, L-1))
     #absorb zero site
     centerlink(mps) ∈ (i,i-1) || error()
@@ -79,7 +79,7 @@ function onesiteheffmap(mpo::AbstractMPO{L}, envs, i) where L
     if i == 1
         c = mpo[1]
         hr = envs[1]
-        return (x -> @tensor x[o2,o3] :=(c[c2,l2,o2] * (hr[c3,l2,o3] * x[c2,c3])))
+        return (x -> (@tensor x[o2,o3] :=(c[c2,l2,o2] * (hr[c3,l2,o3] * x[c2,c3]))))
     elseif i == L
         hl = envs[L-1]
         c = mpo[L]

@@ -2,12 +2,12 @@ using MatrixProductStates, TNTensors, LinearAlgebra, TensorOperations, KrylovKit
 @testset "MPS" begin
     @testset "Inner" begin
         l = 10;
-        pcharges = -2:2;
-        vcharges = -3:3
-        pdims = [1 for i in pcharges]
-        vdims = [2 for i in vcharges]
-        mpo = hubbardMPO(1, 1, pcharges,l, T = ComplexF64)
-        mps = randu1mps(l,ComplexF64, (pcharges,vcharges),(pdims,vdims))
+        pchs = U1Charges(-2:2)
+        vchs = U1Charges(-3:3)
+        pds = [1 for i in pchs]
+        vds = [2 for i in vchs]
+        mpo = hubbardMPO(1, 1, pchs,l, T = ComplexF64)
+        mps = randmps(l, ComplexF64, (U1(), (pchs, vchs), (pds, vds)))
         mpsa = todense(mps)
         mpoa = todense(mpo)
 
@@ -17,11 +17,11 @@ using MatrixProductStates, TNTensors, LinearAlgebra, TensorOperations, KrylovKit
 
     @testset "Canonicalization" begin
         l = 10;
-        pcharges = -2:2;
-        vcharges = -3:3
-        pdims = [1 for i in pcharges]
-        vdims = [2 for i in vcharges]
-        mps = randu1mps(l,ComplexF64, (pcharges,vcharges),(pdims,vdims))
+        pchs = U1Charges(-2:2)
+        vchs = U1Charges(-3:3)
+        pds = [1 for i in pchs]
+        vds = [2 for i in vchs]
+        mps = randmps(l, ComplexF64, (U1(), (pchs, vchs), (pds, vds)))
         for i in 1:l-1
             lmps = MatrixProductStates.leftcanonicalize!(deepcopy(mps),i)
             lenv = foldl(MatrixProductStates.contractsites,zip(lmps[1:i],lmps[1:i]'), init=())
