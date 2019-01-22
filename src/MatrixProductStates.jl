@@ -15,8 +15,10 @@ export dmrg
 include("dmrg.jl")
 export tdvp
 include("tdvp.jl")
-export hubbardMPO
+export hubbardMPO, annihilationOp, creationOp
 include("hubbard.jl")
+export tfisingMPO, sigmaZop
+include("tfising.jl")
 
 
 end # module
