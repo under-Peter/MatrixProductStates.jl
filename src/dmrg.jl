@@ -92,26 +92,8 @@ function minimisesite!(mps::CanonicalMPS{L}, mpo::AbstractMPO, i, envs) where {L
 end
 
 function minevec(mps::CanonicalMPS{L}, mpo::AbstractMPO{L}, i, envs) where L
-    heffmap = heffmapconst(mpo, envs, Val{i})
+    heffmapfun = heffmapconst(mpo, envs, i)
     v0 = mps[i]
-    res = eigsolve(heffmap, v0, 1, :SR, ishermitian=true)
+    res = eigsolve(heffmapfun, v0, 1, :SR, ishermitian=true)
     return (res[2][1], res[1][1], res[3]) #evec, eval, info
-end
-
-function heffmapconst(mpo, envs, ::Type{Val{1}})
-    hr = envs[1]
-    c = mpo[1]
-    return (x -> @tensor x[o2,o3] :=(c[c2,l2,o2] * (hr[c3,l2,o3] * x[c2,c3])))
-end
-
-function heffmapconst(mpo, envs, ::Type{Val{i}}) where i
-    hl, hr = envs[i-1:i]
-    c = mpo[i]
-    return (x -> @tensor x[o1,o2,o3] := hl[c1,l1,o1] * (c[c2,l1,l2,o2] * (hr[c3,l2,o3] * x[c1,c2,c3])))
-end
-
-function heffmapconst(mpo::AbstractMPO{L}, envs, ::Type{Val{L}}) where L
-    hl = envs[L-1]
-    c = mpo[L]
-    return (x -> @tensor x[o1,o2] := hl[o1,l1,c1] * (c[o2,l1,c2] * x[c1,c2]))
 end

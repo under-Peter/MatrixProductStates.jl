@@ -60,8 +60,12 @@ function onesitepropagate!(mps::CanonicalMPS{L}, mpo::AbstractMPO, i, envs, Δt)
     end
 
     #propagate onesite
-    heffmap = onesiteheffmap(mpo, envs, i)
-    mps[i], info = exponentiate(heffmap, -1im * Δt, mps[i], ishermitian=true)
+    heffmapfun = heffmapconst(mpo, envs, i)
+    mps[i], info = exponentiate(
+        heffmapfun,
+        -1im * Δt,
+        mps[i],
+        ishermitian=true)
 
     #canonical form again
     if i == L
@@ -74,25 +78,11 @@ function onesitepropagate!(mps::CanonicalMPS{L}, mpo::AbstractMPO, i, envs, Δt)
     return nothing
 end
 
-
-function onesiteheffmap(mpo::AbstractMPO{L}, envs, i) where L
-    if i == 1
-        c = mpo[1]
-        hr = envs[1]
-        return (x -> (@tensor x[o2,o3] :=(c[c2,l2,o2] * (hr[c3,l2,o3] * x[c2,c3]))))
-    elseif i == L
-        hl = envs[L-1]
-        c = mpo[L]
-        return (x -> @tensor x[o1,o2] := hl[c1,l1,o1] * (c[c2,l1,o2] * x[c1,c2]))
-    else
-        hl, hr = envs[[i-1,i]]
-        c = mpo[i]
-        return (x -> @tensor x[o1,o2,o3] := hl[c1,l1,o1] * (c[c2,l1,l2,o2] * (hr[c3,l2,o3] * x[c1,c2,c3])))
-    end
-end
-
 function zerositepropagate!(mps::CanonicalMPS{L}, hl, hr, Δt) where {L}
-    heffmap = (x ->  @tensor x[1,2] := hl[-1,-3,1] * (hr[-2,-3,2] * x[-1,-2]))
-    mps.zerosite, info = exponentiate(heffmap, -1im * Δt, zerosite(mps), ishermitian=true)
+    mps.zerosite, info = exponentiate(
+        heffmap((hl,hr)),
+        -1im * Δt,
+        zerosite(mps),
+        ishermitian=true)
     return nothing
 end
