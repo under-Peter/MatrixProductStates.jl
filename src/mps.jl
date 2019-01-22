@@ -66,8 +66,9 @@ function TNTensors.todense(mps::MPO{L,T,TE,TB}) where {L,T,TE,TB}
     return MPO{L}( todense(le), todense(blk), todense(re))
 end
 
-TNTensors.charge(mps::MPS{L}) where L = sum(charge.(mps[1:L]))
-TNTensors.charge(mps::CanonicalMPS{L}) where L = sum(charge.(mps[1:L])) + charge(zerosite(mps))
+TNTensors.charge(mps::MPS{L}) where L = reduce(⊕,charge.(mps[1:L]))
+TNTensors.charge(mps::CanonicalMPS{L}) where L =
+    reduce(⊕, charge.(mps[1:L])) ⊕ charge(zerosite(mps))
 
 randmps(N, T::Type, (d, χ)::Tuple{Int,Int}) =  randmps(N, DTensor{T}((χ,d,χ)))
 function randmps(N, T::Type, (sym, (pchs, vchs), (pds, vds)))
