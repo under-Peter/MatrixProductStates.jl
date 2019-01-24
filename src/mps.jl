@@ -52,22 +52,22 @@ end
     setindex!(mpo.sites, tensor, i)
 
 
-function TNTensors.todense(mps::MPS{L,T,TE,TB}) where {L,T,TE,TB}
+function TensorNetworkTensors.todense(mps::MPS{L,T,TE,TB}) where {L,T,TE,TB}
     le = mps[1]
     re = mps[L]
     blk = mps[2:L-1]
     return MPS( todense(le), map(todense,blk), todense(re))
 end
 
-function TNTensors.todense(mps::MPO{L,T,TE,TB}) where {L,T,TE,TB}
+function TensorNetworkTensors.todense(mps::MPO{L,T,TE,TB}) where {L,T,TE,TB}
     le = mps[1]
     re = mps[L]
     blk = mps[2]
     return MPO{L}( todense(le), todense(blk), todense(re))
 end
 
-TNTensors.charge(mps::MPS{L}) where L = reduce(⊕,charge.(mps[1:L]))
-TNTensors.charge(mps::CanonicalMPS{L}) where L =
+TensorNetworkTensors.charge(mps::MPS{L}) where L = reduce(⊕,charge.(mps[1:L]))
+TensorNetworkTensors.charge(mps::CanonicalMPS{L}) where L =
     reduce(⊕, charge.(mps[1:L])) ⊕ charge(zerosite(mps))
 
 randmps(N, T::Type, (d, χ)::Tuple{Int,Int}) =  randmps(N, DTensor{T}((χ,d,χ)))

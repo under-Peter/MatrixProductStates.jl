@@ -1,5 +1,6 @@
 module MatrixProductStates
-using TNTensors, LinearAlgebra
+using TensorNetworkTensors
+using LinearAlgebra
 using TensorOperations: @tensor, scalar, checked_similar_from_indices, tensorcontract
 using KrylovKit
 

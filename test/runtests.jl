@@ -1,5 +1,5 @@
 using Test
-using MatrixProductStates, TNTensors, LinearAlgebra, TensorOperations, KrylovKit
+using MatrixProductStates, TensorNetworkTensors, LinearAlgebra, TensorOperations, KrylovKit
 @testset "MatrixProductStates" begin
     include("mps.jl")
     include("dmrg.jl")

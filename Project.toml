@@ -6,7 +6,7 @@ version = "0.1.0"
 [deps]
 KrylovKit = "0b1a1467-8014-51b9-945f-bf0ae24f4b77"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
-TNTensors = "745a9c42-ba8f-11e8-245d-33de09cdb470"
+TensorNetworkTensors = "9cd545fa-50e6-5d0b-b05c-fbfd5125ba2b"
 TensorOperations = "6aa20fa7-93e2-5fca-9bc0-fbd0db3c71a2"
 
 [extras]
