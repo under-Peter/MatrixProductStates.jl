@@ -15,7 +15,7 @@ function updateenvironments!(envs::Vector{TB},
     elseif i == L #up -> down
         envs[L-1] = contractsites((mps[L],mpo[L],mps[L]'),())
     elseif up
-        envs[i] = contractsites(envs[i-1], (mps[i], mpo[i], mps[i]'))
+        envs[i]   = contractsites(envs[i-1], (mps[i], mpo[i], mps[i]'))
     else
         envs[i-1] = contractsites((mps[i], mpo[i], mps[i]'), envs[i])
     end
@@ -37,7 +37,7 @@ function dmrg(ansatz::AbstractMPS{L,T}, mpo::AbstractMPO{L,T};
         verbose && println("$counter ")
         counter += 1
         up = true
-        E = dmrgsweep(mps, mpo, envs, verbose)
+        E = dmrgsweep!(mps, mpo, envs, verbose)
         push!(energies,E)
 
         if length(energies) > 1 && abs(energies[end] - energies[end-1]) < tol
@@ -51,7 +51,7 @@ function dmrg(ansatz::AbstractMPS{L,T}, mpo::AbstractMPO{L,T};
     return (mps, energies)
 end
 
-function dmrgsweep(mps::AbstractMPS{L}, mpo, envs, verbose) where L
+function dmrgsweep!(mps::AbstractMPS{L}, mpo, envs, verbose) where L
     E = 0
     for i in 1:L
         verbose && println(">"^(i-1),"o","<"^(L-i))
