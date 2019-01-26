@@ -1,3 +1,36 @@
+struct dmrgIterable{TMPS <: AbstractMPS, TMPO <: AbstractMPO}
+    initmps::TMPS
+    mpo::TMPO
+end
+
+struct dmrgState{TMPS <: AbstractMPS, TE <: AbstractTensor}
+    mps::TMPS
+    envs::Vector{TE}
+    energies::Vector{Float64}
+end
+
+function dmrgiterable(mps::TMPS, mpo::TMPO) where {TMPS <: AbstractMPS, TMPO <: AbstractMPO}
+    cmps = normalize!(canonicalize(mps,1))
+    return dmrgIterable{typeof(cmps), TMPO}(cmps , mpo)
+end
+
+function iterate(iter::dmrgIterable{TMPS}) where TMPS
+    @unpack initmps, mpo = iter
+    envs = initenvironments(initmps, mpo)
+    TE = typeof(envs[1])
+    state = dmrgState{TMPS,TE}(initmps, envs, [real(inner(initmps,mpo,initmps))])
+    return state, state
+end
+
+function iterate(iter::dmrgIterable, state::dmrgState)
+    @unpack mps, envs, energies = state
+    @unpack mpo = iter
+    E = dmrgsweep!(mps, mpo, envs)
+    push!(energies, real(E))
+    return state, state
+end
+
+
 function initenvironments(mps::CanonicalMPS{L,T,TE,TB}, mpo::MPO{L,T}) where {L,T,TE,TB}
     centerlink(mps) == 1 || throw(ArgumentError("centerlink needs to be set to 1"))
     envs = TB[]
@@ -27,39 +60,37 @@ function dmrg(ansatz::AbstractMPS{L,T}, mpo::AbstractMPO{L,T};
                 tol::Float64 = 1e-6,
                 verbose::Bool = false,
                 mincounter::Int = 2,
-                maxit::Int = 1_000_000) where {L,T}
-    mps = normalize!(canonicalize(ansatz,1))
-    energies = Float64[]
-    envs = initenvironments(mps, mpo)
-    counter = 1
-    converged = false
-    while (!converged || counter < mincounter) && counter <= maxit
-        verbose && println("$counter ")
-        counter += 1
-        up = true
-        E = dmrgsweep!(mps, mpo, envs, verbose)
-        push!(energies,E)
+                period::Int = 1,
+                maxit::Int = 1_000_000,) where {L,T}
+    stop(state) = length(state.energies) > 1 &&
+                    abs(state.energies[end] - state.energies[end-1]) < tol
+    disp(state) = @printf("%5d \t| %.3e | %.3e\n", state[2][1]-1, state[1]/1e9, state[2][2].energies[end])
 
-        if length(energies) > 1 && abs(energies[end] - energies[end-1]) < tol
-            converged = true
-        end
+    iter = dmrgiterable(ansatz, mpo)
+    tol > 0 && (iter = halt(iter, stop) )
+    iter = take(iter, maxit)
+    iter = enumerate(iter)
+
+    if verbose
+        @printf("\tn \t| time (s)\t| E \n")
+        iter = sample(iter, period)
+        iter = stopwatch(iter)
+        iter = tee(iter, disp)
+        (_, (n, state)) = loop(iter)
+    else
+        (n, state) = loop(iter)
     end
-    verbose && println(
-    """converged after $(counter-1) passes
-    with a ΔE of $(energies[end] - energies[end-1]) in the last step""")
-
-    return (mps, energies)
+    # return (n, state)
+    return (state.mps, state.energies[2:end])
 end
 
-function dmrgsweep!(mps::AbstractMPS{L}, mpo, envs, verbose) where L
+function dmrgsweep!(mps::AbstractMPS{L}, mpo, envs) where L
     E = 0
     for i in 1:L
-        verbose && println(">"^(i-1),"o","<"^(L-i))
         E = minimisesite!(mps, mpo, i, envs)
         updateenvironments!(envs, mps, mpo, i, true)
     end
     for i in L-1:-1:2
-        verbose && println(">"^(i-1),"o","<"^(L-i))
         E = minimisesite!(mps, mpo, i, envs)
         canonicalize!(mps,i-1)
         updateenvironments!(envs, mps, mpo, i, false)

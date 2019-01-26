@@ -9,15 +9,15 @@
         mps = randmps(l,ComplexF64, (U1(), (pchs, vchs), (pds, vds)))
         gs, es  = dmrg(mps, mpo)
 
-        cmps = normalize(mps)
-        mpss = tdvp(cmps,mpo,10,0.01, verbose = false, collectall = true)
-        vals = [sqrt(abs2(inner(cmps, mps))) for mps in mpss[2]]
-        @test all(diff(vals) .< 0)
-
         cmps = normalize(gs)
         mpss = tdvp(cmps,mpo,10,0.01, verbose = false, collectall = true)
         vals = [sqrt(abs2(inner(cmps, mps))) for mps in mpss[2]]
         @test all(vals .≈ 1)
+
+        cmps = normalize(mps)
+        mpss = tdvp(cmps,mpo,10,0.01im, verbose = false, collectall = true)
+        vals = [sqrt(abs2(inner(cmps, mps))) for mps in mpss[2]]
+        @test all(diff(vals) .< 0)
     end
 
     @testset "Dense" begin

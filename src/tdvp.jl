@@ -1,42 +1,85 @@
+struct tdvpIterable{TMPS <: AbstractMPS, TMPO <: AbstractMPO,T}
+    initmps::TMPS
+    mpo::TMPO
+    Δt::T
+end
+
+struct tdvpState{TMPS <: AbstractMPS, TE <: AbstractTensor}
+    mps::TMPS
+    envs::Vector{TE}
+end
+
+function tdvpiterable(mps::TMPS, mpo::TMPO, Δt::T) where
+        {TMPS <: AbstractMPS, TMPO <: AbstractMPO, T}
+    cmps = normalize!(canonicalize(mps,1))
+    return tdvpIterable{typeof(cmps), TMPO, T}(cmps , mpo, Δt)
+end
+
+function iterate(iter::tdvpIterable{TMPS}) where TMPS
+    @unpack initmps, mpo = iter
+    envs = initenvironments(initmps, mpo)
+    TE = typeof(envs[1])
+    state = tdvpState{TMPS,TE}(initmps, envs)
+    return state, state
+end
+
+function iterate(iter::tdvpIterable, state::tdvpState)
+    @unpack mps, envs = state
+    @unpack mpo, Δt = iter
+    tdvpsweep!(mps, mpo, envs, Δt)
+    return state, state
+end
+
 leftenv(A::AbstractMPS{L,T,TE,TB}, O::MPO{L,T}, i) where
     {L,T,TE,TB}  = foldl(contractsites, zip(A[1:i], O[1:i], A[1:i]'), init=())
 
 rightenv(A::AbstractMPS{L,T,TE,TB}, O::MPO{L,T}, i) where
     {L,T,TE,TB}  = foldr(contractsites, collect(zip(A[i:L], O[i:L], A[i:L]')), init=())
 
-function tdvp(ansatz::AbstractMPS{L,T}, mpo::AbstractMPO{L,T}, n,t;
+function tdvp(mps::AbstractMPS{L,T}, mpo::AbstractMPO{L,T}, n,t;
         verbose::Bool = false,
+        period::Int = 1,
         collectall::Bool = false) where {L,T}
-    mps = normalize!(canonicalize(ansatz,1))
-    collectall && (mpss = Vector{typeof(mps)}())
-    envs = initenvironments(mps, mpo)
     Δt = t/n
-    for i in 1:n
-        verbose && println("step $i \t t = $(i*Δt) ")
-        tdvpsweep!(mps, mpo, envs, Δt, verbose)
-        collectall && push!(mpss, deepcopy(mps))
+    disp(state) = @printf("%5d \t| %.3e | %.3e\n",
+                        state[2][1]-1,
+                        state[1]/1e9,
+                        (state[2][1]-1) * Δt)
+    iter = tdvpiterable(mps, mpo, Δt)
+    if collectall
+        mpss = Vector{typeof(iter.initmps)}()
+        iter = tee(iter, state -> push!(mpss, deepcopy(state.mps)))
     end
-    collectall && return ((1:n) .* Δt, mpss)
-    return mps
+    iter = take(iter, n+1)
+    iter = enumerate(iter)
+
+
+    if verbose
+        @printf("\tn \t| time (s)\t| t \n")
+        iter = sample(iter, period)
+        iter = stopwatch(iter)
+        iter = tee(iter, disp)
+        (_, (n, state)) = loop(iter)
+    else
+        (n, state) = loop(iter)
+    end
+    collectall && return ((1:n) .* Δt, normalize!.(mpss))
+    return normalize!(state.mps)
 end
 
-function tdvpsweep!(mps::AbstractMPS{L}, mpo, envs, Δt, verbose) where L
+function tdvpsweep!(mps::AbstractMPS{L}, mpo, envs, Δt) where L
     for i in 1:L-1
-        verbose && println(">"^(i-1),"o","<"^(L-i))
         onesitepropagate!(mps, mpo, i, envs, Δt/2)
         envsi = deepcopy(envs[i])
         updateenvironments!(envs, mps, mpo, i, true)
         zerositepropagate!(mps, envs[i], envsi, -Δt/2)
     end
-
-    verbose && println(">"^(L-1),"o")
     onesitepropagate!(mps, mpo, L, envs, Δt)
     envsi = deepcopy(envs[L-1])
     updateenvironments!(envs, mps, mpo, L)
     zerositepropagate!(mps, envsi, envs[L-1], -Δt/2)
 
     for i in L-1:-1:2
-        verbose && println(">"^(i-1),"o","<"^(L-i))
         onesitepropagate!(mps, mpo, i, envs, Δt/2)
         canonicalize!(mps,i-1)
         envsi = deepcopy(envs[i-1])
