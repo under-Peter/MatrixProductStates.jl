@@ -5,7 +5,7 @@ using TensorOperations: @tensor, scalar, checked_similar_from_indices, tensorcon
 using Parameters
 using Printf
 using KrylovKit
-using Base.Iterators: take, rest
+using Base.Iterators: take, rest, Rest
 using Base.Printf
 import Base.iterate
 
