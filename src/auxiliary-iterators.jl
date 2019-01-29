@@ -48,7 +48,9 @@ function iterate(iter::SamplingIterable, state=iter.iter)
     if current === nothing return nothing end
     for i = 1:iter.period-1
         next = iterate(state, current[2])
-        if next === nothing return current[1], rest(state, current[2]) end
+        if next === nothing
+            return current[1], rest(state, current[2])
+        end
         current = next
     end
     return current[1], rest(state, current[2])
