@@ -59,10 +59,11 @@ end
 function dmrg(ansatz::AbstractMPS{L,T}, mpo::AbstractMPO{L,T};
                 tol::Float64 = 1e-6,
                 verbose::Bool = false,
-                mincounter::Int = 2,
+                minit::Int = 2,
                 period::Int = 1,
                 maxit::Int = 1_000_000,) where {L,T}
-    stop(state) = length(state.energies) > 1 &&
+
+    stop(state) = length(state.energies) > minit &&
                     abs(state.energies[end] - state.energies[end-1]) < tol
     disp(state) = @printf("%5d \t| %.3e | %.3e\n", state[2][1]-1, state[1]/1e9, state[2][2].energies[end])
 
@@ -80,7 +81,6 @@ function dmrg(ansatz::AbstractMPS{L,T}, mpo::AbstractMPO{L,T};
     else
         (n, state) = loop(iter)
     end
-    # return (n, state)
     return (state.mps, state.energies[2:end])
 end
 

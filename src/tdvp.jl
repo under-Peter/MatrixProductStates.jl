@@ -53,7 +53,6 @@ function tdvp(mps::AbstractMPS{L,T}, mpo::AbstractMPO{L,T}, n,t;
     iter = take(iter, n+1)
     iter = enumerate(iter)
 
-
     if verbose
         @printf("\tn \t| time (s)\t| t \n")
         iter = sample(iter, period)
