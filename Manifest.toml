@@ -1,14 +1,12 @@
-# This file is machine-generated - editing it directly is not advised
-
 [[Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 
 [[Distributed]]
-deps = ["Random", "Serialization", "Sockets"]
+deps = ["LinearAlgebra", "Random", "Serialization", "Sockets"]
 uuid = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 
 [[InteractiveUtils]]
-deps = ["Markdown"]
+deps = ["LinearAlgebra", "Markdown"]
 uuid = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
 
 [[KrylovKit]]
@@ -69,7 +67,7 @@ version = "0.2.4"
 
 [[TensorNetworkTensors]]
 deps = ["LinearAlgebra", "Parameters", "TensorOperations", "TupleTools"]
-git-tree-sha1 = "f9125589a86d8c0fc99bcbfac16fa8735ac3e93c"
+git-tree-sha1 = "b3511ebe6546b67c7f5a89b9d958b7795298456e"
 repo-rev = "master"
 repo-url = "git@github.com:under-Peter/TensorNetworkTensors.jl.git"
 uuid = "9cd545fa-50e6-5d0b-b05c-fbfd5125ba2b"
