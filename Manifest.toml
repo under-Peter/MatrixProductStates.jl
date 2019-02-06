@@ -69,7 +69,7 @@ version = "0.2.5"
 
 [[TensorNetworkTensors]]
 deps = ["LinearAlgebra", "Parameters", "TensorOperations", "TupleTools"]
-git-tree-sha1 = "5700247871876e76a2c68fa7d72c843e2bde54ce"
+git-tree-sha1 = "f3d5a446cd2869e7d1ec577a028d571889a8deaf"
 repo-rev = "master"
 repo-url = "git@github.com:under-Peter/TensorNetworkTensors.jl.git"
 uuid = "9cd545fa-50e6-5d0b-b05c-fbfd5125ba2b"
