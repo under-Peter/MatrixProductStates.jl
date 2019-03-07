@@ -1,3 +1,11 @@
+"""
+    hubbardMPO(t, U, pchs, N[; T = ComplexF64])
+returns an MPO for the Hubbard model
+```
+    H = -∑_i t (a^†_i a_(i+1) + a_i a^†_(i+1)) + U/2 n_i (n_i-1)
+```
+on N sites.
+"""
 function hubbardMPO(t, U, pchs, N; T = ComplexF64)
     pdims = fill(1, length(pchs))
     bulk = DASTensor{T,4}(
@@ -27,7 +35,7 @@ function hubbardMPO(t, U, pchs, N; T = ComplexF64)
         #a a^†
         # (0,0) → a_i → (1,0)
         @tensor deg[1, 2, 3, 4] := mat00to1[1, 4] * peye[2, 3]
-        bulk[DASSector(U1Charge(0), U1Charge(ch), U1Charge(ch-1), U1Charge(1))] = deg
+        bulk[DASSector(U1Charge(0), U1Charge(ch), U1Charge(ch-1), U1Charge(1))] = -t*deg
         # (1,0) → a^†_{i+1} → (0,1)
         @tensor deg[1, 2, 3, 4] := mat1to01[1, 4] * peye[2, 3]
         bulk[DASSector(U1Charge(1), U1Charge(ch-1), U1Charge(ch), U1Charge(0))] = deg
@@ -35,7 +43,7 @@ function hubbardMPO(t, U, pchs, N; T = ComplexF64)
         #a^† a
         # (0,0) → a^†_i → (-1,0)
         @tensor deg[1, 2, 3, 4] := mat00to1[1, 4] * peye[2, 3]
-        bulk[DASSector(U1Charge(0), U1Charge(ch-1), U1Charge(ch), U1Charge(-1))] = deg
+        bulk[DASSector(U1Charge(0), U1Charge(ch-1), U1Charge(ch), U1Charge(-1))] = -t*deg
         # (-1,0) → a_{i+1} → (0,1)
         @tensor deg[1, 2, 3, 4] := mat1to01[1, 4] * peye[2, 3]
         bulk[DASSector(U1Charge(-1), U1Charge(ch), U1Charge(ch-1), U1Charge(0))] = deg
