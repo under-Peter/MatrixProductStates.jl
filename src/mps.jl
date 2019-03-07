@@ -1,9 +1,19 @@
+"""
+    MPS(lb, bulk, rb)
+constructs an `MPS` where the left-most tensor is the rank-2 tensor lb,
+the right-most tensor is the rank-2 tensor rb and in-between are the rank-4 tensors
+in the vector `bulk`.
+The leg-numbering should be
+
+
+    (1)                 (2)                (2)              (2)
+     ↑         …         ↑                  ↑          …     ↑
+    [lb] →(2)   (1)→[bulk[i]]→(3) (1)→[bulk[i+1]]→(3)   (1)→[rb]
+
+
+The tensors can then be accessed by indexing into the mps.
+"""
 mutable struct MPS{L, T, TE <: AbstractTensor{T,2}, TB <: AbstractTensor{T,3}} <: AbstractMPS{L,T,TE,TB}
-    #= MPS
-      (1)                 (2)                (2)                 (2)
-       ↑         …         ↑                  ↑          …        ↑
-    [ledge] →(2)   (1)→[bulk(i)]→(3) (1)→[bulk(i+1)]→(3)   (1)→[redge]
-     =#
     sites::Vector{Union{TE,TB}}
     MPS(a::TE, b::Vector{TB}, c::TE) where {T, TE <: AbstractTensor{T,2},
         TB <: AbstractTensor{T,3}} = new{length(b)+2,T,TE,TB}([a; b; c])
@@ -11,11 +21,29 @@ end
 
 Base.getindex(mps::AbstractMPS{L}, i) where L = mps.sites[i]
 Base.setindex!(mps::AbstractMPS{L}, tensor, i) where {L} = setindex!(mps.sites, tensor, i)
+"""
+    length(mps::AbstractMPS)
+return the number of sites in `mps`
+"""
 Base.length(::AbstractMPS{L}) where L = L
+"""
+    adjoint(mps::AbstractMPS)
+conjugate each tensor in the mps
+"""
 Base.adjoint(mps::MPS{L,T,TE,TB}) where {L,T,TE,TB} =
     MPS(mps[1]', adjoint.(convert(Array{TB},mps[2:L-1])), mps[L]')
 
 
+"""
+    CanonicalMPS(lb, bulk, rb, cl, zs)
+returns a canonical MPS with tensors `lb`, `bulk` and `rb` (see `?MPS`) and
+a rank-2 tensor zs (zerosite) between tensor `cl` and `cl+1`.
+The index labeling is
+
+    (1)                 (2)                               (2)                 (2)
+     ↑         …         ↑                                 ↑          …        ↑
+    [lb] →(2)   (1)→[bulk[cl]]→(3)  (1)→[zs]→(2)  (1)→[bulk[cl+1]]→(3)   (1)→[rb]
+"""
 mutable struct CanonicalMPS{L, T, TE <: AbstractTensor{T,2}, TB <: AbstractTensor{T,3}} <: AbstractMPS{L,T,TE,TB}
     #= CMPS with centerlink = i
       (1)                 (2)                               (2)                 (2)
@@ -29,19 +57,35 @@ mutable struct CanonicalMPS{L, T, TE <: AbstractTensor{T,2}, TB <: AbstractTenso
         TB <: AbstractTensor{T,3}} = new{length(b)+2,T,TE,TB}([a; b; c], cl, zs)
 end
 
+"""
+    centerlink(mps::CanonicalMPS)
+returns the centerlink `cl` of the canonical MPS `mps` such that the zerosite-tensor is located
+between site `cl` and `cl+1`
+"""
 @inline centerlink(mps::CanonicalMPS) = mps.centerlink
+"""
+    zerosite(mps::CanonicalMPS)
+return the rank-2 zerosite tensor of the canonical MPS `mps`.
+Its location can be accessed with `centerlink(mps)`.
+"""
 @inline zerosite(mps::CanonicalMPS) = mps.zerosite
 Base.adjoint(cmps::CanonicalMPS{L,T,TE,TB}) where {L,T,TE,TB} =
     CanonicalMPS(cmps[1]', adjoint.(convert(Array{TB},cmps[2:L-1])), cmps[L]', centerlink(cmps), zerosite(cmps)')
 
-mutable struct MPO{L, T, TE <: AbstractTensor{T,3}, TB <: AbstractTensor{T,4}} <: AbstractMPO{L,T,TE,TB}
-    #=MPO
+"""
+    MPO(lb, bulk, rb)
+return an MPO with left-most site rank-3 tensor `lb`, right-most site rank-3 tensor `rb`
+and rank-4 bulk tensors in `bulk`.
+The labeling is
+
     (3)          (4)         (3)
      ↑            ↑           ↑
     [lb]→(2) (2)→[b]→(3) (2)→[rb]
      ↑            ↑           ↑
     (1)          (1)         (1)
-    =#
+
+"""
+mutable struct MPO{L, T, TE <: AbstractTensor{T,3}, TB <: AbstractTensor{T,4}} <: AbstractMPO{L,T,TE,TB}
     sites::Vector{Union{TE,TB}}
     MPO{L}(a::TE, b::TB, c::TE) where {T, TE <: AbstractTensor{T,3},
         TB <: AbstractTensor{T,4},L} = new{L,T,TE,TB}([a; fill(b ,L-2); c])
@@ -52,6 +96,10 @@ end
     setindex!(mpo.sites, tensor, i)
 
 
+"""
+    todense(mps::AbstractMPS)
+apply `todense` to all tensors in mps
+"""
 function TensorNetworkTensors.todense(mps::MPS{L,T,TE,TB}) where {L,T,TE,TB}
     le = mps[1]
     re = mps[L]
@@ -59,6 +107,10 @@ function TensorNetworkTensors.todense(mps::MPS{L,T,TE,TB}) where {L,T,TE,TB}
     return MPS( todense(le), map(todense,blk), todense(re))
 end
 
+"""
+    todense(mpo::AbstractMPO)
+apply `todense` to all tensors in mpo
+"""
 function TensorNetworkTensors.todense(mps::MPO{L,T,TE,TB}) where {L,T,TE,TB}
     le = mps[1]
     re = mps[L]
@@ -66,16 +118,41 @@ function TensorNetworkTensors.todense(mps::MPO{L,T,TE,TB}) where {L,T,TE,TB}
     return MPO{L}( todense(le), todense(blk), todense(re))
 end
 
+"""
+    charge(mps::AbstractMPS)
+returns the charge of the mps by calculating the charge of each tensor and adding them up.
+"""
 TensorNetworkTensors.charge(mps::MPS{L}) where L = reduce(⊕,charge.(mps[1:L]))
 TensorNetworkTensors.charge(mps::CanonicalMPS{L}) where L =
     reduce(⊕, charge.(mps[1:L])) ⊕ charge(zerosite(mps))
 
+"""
+    randmps(N, T, (d, χ))
+return an mps with `N` sites of dense tensors with element-type `T`, virtual dimension `χ`
+and physical dimension `d`.
+"""
 randmps(N, T::Type, (d, χ)::Tuple{Int,Int}) =  randmps(N, DTensor{T}((χ,d,χ)))
+
+"""
+    randmps(N, T, (sym, (pchs,vchs), (pds, vds))
+return an mps with `N` sites of symmetric tensors with symmetries `sym`,
+tensors with element-type `T`, physical charges `pchs` with dimensions `pds` and
+virtual charges `vchs` with dimensions `vds`.
+The tensors legs are oriented as
+
+    1→[b]→3
+       ↑
+       2
+"""
 function randmps(N, T::Type, (sym, (pchs, vchs), (pds, vds)))
     a = DASTensor{T,3}(sym, (vchs, pchs, vchs), (vds, pds, vds), InOut(-1,-1,1))
     randmps(N, a)
 end
 
+"""
+    randmps(N, b::AbstractTensor)
+build a random mps where the bulk-tensors have the same structure as `b` and boundaries.
+"""
 function randmps(N, A::AbstractTensor{T,3}) where T
     if A isa DASTensor
         in_out(A) == InOut(-1,-1,1) || throw(
@@ -92,12 +169,8 @@ end
 
 
 #= mpscontract to scalar =#
-function contractsites(A::T, B::T) where T <: AbstractTensor{<:Any,3}
-    @tensor res = A[1,2,3] * B[1,2,3]
-end
-
-function contractsites(A::T, B::T) where T <: AbstractTensor{<:Any,2}
-    @tensor res = A[1,2] * B[1,2]
+function contractsites(A::T, B::T) where T <: AbstractTensor{<:Any,N} where N
+    tensorcontract(A, 1:N, B, 1:N)
 end
 
 function contractsites((B,C)::Tuple{AbstractTensor{T,2},AbstractTensor{T,2}},
@@ -195,8 +268,16 @@ function contractsite(A::AbstractTensor{T,2},B::AbstractTensor{T,2}) where T
 end
 
 
+"""
+    inner(mps)
+return inner(mps,mps)
+"""
 inner(A) = inner(A,A)
 
+"""
+    inner(a, b)
+return the inner product between MPS `a` and `b`.
+"""
 inner(A::MPS{L,T,TE,TB}, B::MPS{L,T,TE,TB}) where {L,T,TE,TB} =
     foldl(contractsites, zip(A[:], B[:]'), init=())
 
@@ -254,8 +335,10 @@ onesitesvd2left(A::AbstractTensor{<:Any,3}) = tensorsvd(A, ((1,),(2,3)))
 
 onesitesvd2left(A::AbstractTensor{T,2}) where T = tensorsvd(A)
 
-function leftcanonicalize!(mps::MPS{L,T}, uptolink::Int) where {L,T}
-    #=
+"""
+    leftcanonicalize!(mps, site::Int)
+return an `MPS` where all sites to the left of `site` are canonicalized, e.g.
+
     IN:
     ↑ ↑ ↑ ↑ ↑ ↑ ↑
     o-o-o-o-o-o-o, e.g uptolink = 3
@@ -264,9 +347,10 @@ function leftcanonicalize!(mps::MPS{L,T}, uptolink::Int) where {L,T}
     ↑ ↑ ↑ ↑ ↑ ↑ ↑
     >->->-ø-o-o-o where > are leftcanonical
                         ø is changed
-    =#
+"""
+function leftcanonicalize!(mps::MPS{L,T}, uptolink::Int) where {L,T}
     uptolink < 1 && return mps
-    uptolink > L-1 && throw( ArgumentError(
+    uptolink > L-1 && throw(ArgumentError(
     "can't bring in to leftcanonical-form up to link $uptolink with only $(L-1) links"))
 
     for i in 1:uptolink
@@ -277,8 +361,9 @@ function leftcanonicalize!(mps::MPS{L,T}, uptolink::Int) where {L,T}
     return mps
 end
 
-function rightcanonicalize!(mps::AbstractMPS{L,T}, downtolink::Int) where {L,T}
-    #=
+"""
+    rightcanonicalize!(mps, site::Int)
+return an `MPS` where all sites to the right of `site` are canonicalized, e.g.
     IN:
     ↑ ↑ ↑ ↑ ↑ ↑ ↑
     o-o-o-o-o-o-o, e.g downtolink = 3
@@ -287,7 +372,9 @@ function rightcanonicalize!(mps::AbstractMPS{L,T}, downtolink::Int) where {L,T}
     ↑ ↑ ↑ ↑ ↑ ↑ ↑
     o-o-ø-<-<-<-<, where < is rightcanonicalize
                          ø is changed
-    =#
+
+"""
+function rightcanonicalize!(mps::AbstractMPS{L,T}, downtolink::Int) where {L,T}
     downtolink >= L && return mps
     downtolink < 1 && throw( ArgumentError(
     "can't bring in to rightcanonical-form down to link $downtolink < 1 "))
@@ -300,13 +387,20 @@ function rightcanonicalize!(mps::AbstractMPS{L,T}, downtolink::Int) where {L,T}
     return mps
 end
 
-canonicalize(mps::MPS) = canonicalize(mps,1)
-function canonicalize(mps::MPS{L,T,TE,TB}, link) where {L,T,TE,TB}
-    #=
+"""
+    canonicalize(mps [, link=1])
+return a `CanonicalMPS` with centerlink `link`, e.g.
+
     IN:     ↑ ↑ ↑ ↑ ↑ ↑ ↑
     mps =   o-o-o-o-o-o-o
             link = 3
-    =#
+
+    Out:    ↑ ↑ ↑ ↑ ↑ ↑ ↑
+    mps =   >->->x<-<-<-<
+
+where `x` is the zerosite.
+"""
+function canonicalize(mps::MPS{L,T,TE,TB}, link = 1) where {L,T,TE,TB}
     mps = deepcopy(mps)
     1 <= link <= (L-1) || throw(
         ArgumentError("link=$link must be between 1 and $(L-1)"))
@@ -330,6 +424,10 @@ function canonicalize(mps::MPS{L,T,TE,TB}, link) where {L,T,TE,TB}
     return CanonicalMPS(l, b, r, link, Sm)::CanonicalMPS{L}
 end
 
+"""
+    canonicalize!(cmps::CanonicalMPS, link)
+move the centerlink/zerosite to `link`.
+"""
 function canonicalize!(mps::CanonicalMPS{L}, link::Int) where {L}
     1 <= link <= (L-1) || throw(
         ArgumentError("link must be between 1 and $(L-1), is $link"))
@@ -362,26 +460,49 @@ function movecenterlink!(mps::CanonicalMPS{L,T}, up::Bool) where {L,T}
     return mps
 end
 
+"""
+    normalize!(cmps::CanonicalMPS)
+normalize `cmps` by normalising its zerosite.
+"""
 function LinearAlgebra.normalize!(mps::CanonicalMPS)
     fac = sqrt(inner(mps))
     apply!(zerosite(mps), x -> x .= x ./ fac)
     return mps
 end
 
+"""
+    normalize!(mps::MPS)
+normalize `mps` by first canonicalizing it and then normalize the `CanonicalMPS`.
+"""
 LinearAlgebra.normalize(mps::MPS) = normalize!(canonicalize(mps))
 LinearAlgebra.normalize(mps::CanonicalMPS) = normalize!(deepcopy(mps))
 
+"""
+    onesitexp(mps, op, site)
+return the one-site expectationvalue of the rank-2 tensor `op` applied at site `site`.
+"""
 function onesiteexp(mps::AbstractMPS{L,T,TE}, op::TE, site) where {T,L,TE}
     mps2 = applyonesite(mps, op, site)
     return inner(mps,mps2)
 end
 
+"""
+    onesitevar(mps, op, site)
+return the variance of the operator `op` at `site`, i.e.
+
+    <mps|op^2|mps> - <mps|op|mps>^2
+"""
 function onesitevar(mps::AbstractMPS{L,T,TE}, op::TE, site) where {T,L,TE}
-     mps1 = applyonesite(mps, op, site)
-     mps2 = applyonesite(mps1, op, site)
+    mps1 = applyonesite(mps, op, site)
+    mps2 = applyonesite(mps1, op, site)
     return inner(mps2,mps) - inner(mps1,mps)^2
 end
 
+"""
+    twositecorr(mps, (op1,op2), (site1,sit2))
+return the two-site correlator with `op1` applied at `site1`
+and `op2` applied at `site2`.
+"""
 function twositecorr(mps::AbstractMPS{L,T,TE},
         (op1,op2)::NTuple{2,TE},
         (site1,site2)::NTuple{2,Int}) where {L,T,TE}
@@ -405,6 +526,11 @@ end
 
 applyonesite(mps, op, site) = applyonesite!(deepcopy(mps), op, site)
 
+"""
+    entropy(mps::AbstractMPS, link)
+return the entropy of entanglement accross link `link` connecting site
+`link` to site `link+1`.
+"""
 function entropy(mps::AbstractMPS, link::Int)
     zs = zerosite(canonicalize(mps, link))
     Σ = tensorsvd(zs)[2]
