@@ -1,6 +1,6 @@
 """
     hubbardMPO(t, U, pchs, N[; T = ComplexF64])
-returns an MPO for the Hubbard model
+returns a `U1`-symmetric MPO for the Hubbard model
 ```
     H = -∑_i t (a^†_i a_(i+1) + a_i a^†_(i+1)) + U/2 n_i (n_i-1)
 ```
@@ -63,6 +63,10 @@ function hubbardMPO(t, U, pchs, N; T = ComplexF64)
     return MPO{N}(leftbound, bulk,  rightbound)
 end
 
+"""
+    creationOp(pchs::U1Charges [, T = ComplexF64])
+return the creation operator `a†` acting on charges `pchs`
+"""
 function creationOp(pchs::U1Charges, T = ComplexF64)
     a = DASTensor{T,2}(U1(), (pchs, pchs),
         (fill(1, length(pchs)), fill(1, length(pchs))),
@@ -76,6 +80,10 @@ function creationOp(pchs::U1Charges, T = ComplexF64)
     return a
 end
 
+"""
+    annihilationOp(pchs::U1Charges [, T = ComplexF64])
+return the annihilation operator `a` acting on charges `pchs`
+"""
 function annihilationOp(pchs::U1Charges, T = ComplexF64)
     a = DASTensor{T,2}(U1(), (pchs, pchs),
         (fill(1, length(pchs)), fill(1, length(pchs))),

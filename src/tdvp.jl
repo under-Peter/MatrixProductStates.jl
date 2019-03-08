@@ -36,6 +36,12 @@ leftenv(A::AbstractMPS{L,T,TE,TB}, O::MPO{L,T}, i) where
 rightenv(A::AbstractMPS{L,T,TE,TB}, O::MPO{L,T}, i) where
     {L,T,TE,TB}  = foldr(contractsites, collect(zip(A[i:L], O[i:L], A[i:L]')), init=())
 
+"""
+    tdvp(mps::AbstractMPS, mpo::AbstractMPO, n, t, [;verbose=false, period=1, collectall=false])
+returns the mps after applying the `mpo` for time `t` where `t` is split into `n` equal timesteps.
+If `verbose=true`, information about the execution will be printed every `period` iteration.
+If `collectall=true`, a tuple of times and states at those times will be returned.
+"""
 function tdvp(mps::AbstractMPS{L,T}, mpo::AbstractMPO{L,T}, n,t;
         verbose::Bool = false,
         period::Int = 1,

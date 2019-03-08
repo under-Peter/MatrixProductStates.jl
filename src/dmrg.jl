@@ -56,6 +56,17 @@ function updateenvironments!(envs::Vector{TB},
 end
 
 
+"""
+    dmrg(ansatz::AbstractMPS, mpo::AbstractMPO [; tol=1e-6, verbose=false,minit=2,period=1,maxit=10^6])
+returns the ground-state as a `CanonicalMPS` of the MPO `mpo` as well as a list of the energies
+calculated after each full sweep of the single-site dmrg algorithm.
+The algorithm finishes either if `maxit` iterations are reached, or at least `minit` iterations
+have been done _and_ the absolute change of energy between the two most recent steps is less
+than `tol`.
+If `tol` is negative, `maxit` iterations will be done.
+
+If `verbose=true`, information about the execution will be printed every `period` iteration.
+"""
 function dmrg(ansatz::AbstractMPS{L,T}, mpo::AbstractMPO{L,T};
                 tol::Float64 = 1e-6,
                 verbose::Bool = false,

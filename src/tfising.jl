@@ -1,6 +1,6 @@
 """
     tfisingMPO(h, N[; T = ComplexF64])
-returns an MPO for the transverse field Ising model:
+returns a Z2-symmetric MPO for the transverse field Ising model:
 ```
     H = -∑_i σ^i_x σ^(i+1)_x - ∑_i h σ^i_z
 ```
@@ -52,6 +52,10 @@ function tfisingMPO(h, N; T = ComplexF64)
     return MPO{N}(leftbound, bulk,  rightbound)
 end
 
+"""
+    sigmaZop([T = ComplexF64])
+return the Z2-symmetric σz operator.
+"""
 function sigmaZop(T = ComplexF64)
     a = DASTensor{T,2}(Z2(),
         (Z2Charges(), Z2Charges()),
